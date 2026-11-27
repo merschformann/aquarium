@@ -1,0 +1,48 @@
+name: release
+run-name: Release ${{ inputs.VERSION }} by @${{ github.actor }} from ${{ github.ref_name }}
+
+# Tags the current commit, creates a GitHub release and publishes the packages to NuGet.org.
+# The version only lives in the tag (passed to dotnet pack), so no version bump commit is needed.
+on:
+  workflow_dispatch:
+    inputs:
+      VERSION:
+        description: "The version to release (e.g. 0.1.0)"
+        required: true
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # tag and release
+      id-token: write # NuGet trusted publishing (OIDC)
+    env:
+      VERSION: ${{ inputs.VERSION }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Build, test and pack
+        run: |
+          dotnet build -c Release -p:Version=$VERSION
+          dotnet test -c Release --no-build
+          dotnet pack -c Release --no-build -p:Version=$VERSION -o ./nupkg
+
+      - name: Tag and create release
+        run: |
+          git tag $VERSION
+          git push origin $VERSION
+          gh release create $VERSION --verify-tag --generate-notes --title $VERSION ./nupkg/*
+
+      - name: NuGet login
+        uses: NuGet/login@v1
+        id: login
+        with:
+          user: ${{ secrets.NUGET_USER }}
+
+      - name: Publish to NuGet.org
+        run: dotnet nuget push "./nupkg/*.nupkg" --api-key ${{ steps.login.outputs.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate

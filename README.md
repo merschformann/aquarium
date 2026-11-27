@@ -2,6 +2,9 @@
 
 Fast, simple 3D visualization of many shapes for [Avalonia](https://avaloniaui.net/) applications - think warehouses full of shelves and robots, or containers packed with boxes.
 
+> [!NOTE]
+> Aquarium was implemented with the support of an AI coding assistant (Claude). Design decisions, review and testing are done by a human.
+
 - **Instanced rendering:** all instances of a shape (box, cylinder, sphere or a custom mesh) are drawn with a single draw call. Tens of thousands of moving objects stay smooth.
 - **Simple model:** a `Scene` consists of batches of instances (position, size, rotation, color) and lines. Batches can be updated from any thread.
 - **Interaction:** orbit / pan / zoom camera, picking (click on an instance), fit to scene, screenshots.
