@@ -9,6 +9,7 @@
     <Authors>Marius Merschformann</Authors>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>icon.png</PackageIcon>
     <!-- Default version for local builds, releases set it from the tag (dotnet pack -p:Version=x.y.z) -->
     <Version>0.1.0</Version>
     <PackageProjectUrl>https://github.com/merschformann/aquarium</PackageProjectUrl>

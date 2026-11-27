@@ -177,27 +177,35 @@ internal sealed class AquariumDemo : IDemo
                 f.Position = Vector3.Clamp(f.Position + f.Velocity * seconds, min, max);
             }
 
-            // Orientation: nose along +x (local), turned by yaw and pitched by the vertical speed
-            float yaw = MathF.Atan2(f.Velocity.Y, f.Velocity.X);
-            float pitch = -MathF.Atan2(f.Velocity.Z, new Vector2(f.Velocity.X, f.Velocity.Y).Length());
-            Quaternion rotation = Quaternion.CreateFromAxisAngle(Vector3.UnitZ, yaw) * Quaternion.CreateFromAxisAngle(Vector3.UnitY, pitch);
-            Vector3 position = f.Position;
-            float length = f.Length;
-            Vector3 Local(float x, float y, float z) => position + Vector3.Transform(new Vector3(x, y, z) * length, rotation);
-
             float wiggle = MathF.Sin(_time * 9 * f.Speed + f.Phase) * 0.45f;
-            Quaternion tail = rotation * Quaternion.CreateFromAxisAngle(Vector3.UnitZ, wiggle) * Quaternion.CreateFromAxisAngle(Vector3.UnitX, MathF.PI / 4);
-            Color4 fin = new((byte)(f.Color.R * 0.8f), (byte)(f.Color.G * 0.8f), (byte)(f.Color.B * 0.8f));
-            _bodyInstances[i] = new Instance(f.Position, new Vector3(1, 0.38f, 0.55f) * f.Length, rotation, f.Color);
-            _tailInstances[i] = new Instance(Local(-0.6f, 0, 0) + Vector3.Transform(new Vector3(0, wiggle * 0.08f, 0), rotation), new Vector3(0.3f, 0.03f, 0.3f) * f.Length, tail, fin);
-            _finInstances[i] = new Instance(Local(0, 0, 0.3f), new Vector3(0.35f, 0.03f, 0.18f) * f.Length, rotation * Quaternion.CreateFromAxisAngle(Vector3.UnitY, 0.35f), fin);
-            _eyeInstances[2 * i] = new Instance(Local(0.32f, 0.14f, 0.07f), new Vector3(0.09f * f.Length), new Color4(20, 20, 30));
-            _eyeInstances[2 * i + 1] = new Instance(Local(0.32f, -0.14f, 0.07f), new Vector3(0.09f * f.Length), new Color4(20, 20, 30));
+            (_bodyInstances[i], _tailInstances[i], _finInstances[i], _eyeInstances[2 * i], _eyeInstances[2 * i + 1]) = DrawFish(f.Position, f.Velocity, f.Length, f.Color, wiggle);
         }
         _bodies.Set(_bodyInstances);
         _tails.Set(_tailInstances);
         _fins.Set(_finInstances);
         _eyes.Set(_eyeInstances);
+    }
+
+    /// <summary>
+    /// The parts of a fish (body, tail, dorsal fin, eyes) swimming in the direction of its velocity (nose along local +x).
+    /// </summary>
+    internal static (Instance Body, Instance Tail, Instance Fin, Instance LeftEye, Instance RightEye) DrawFish(Vector3 position, Vector3 velocity, float length, Color4 color, float wiggle)
+    {
+        // Turned by yaw and pitched by the vertical speed
+        float yaw = MathF.Atan2(velocity.Y, velocity.X);
+        float pitch = -MathF.Atan2(velocity.Z, new Vector2(velocity.X, velocity.Y).Length());
+        Quaternion rotation = Quaternion.CreateFromAxisAngle(Vector3.UnitZ, yaw) * Quaternion.CreateFromAxisAngle(Vector3.UnitY, pitch);
+        Vector3 Local(float x, float y, float z) => position + Vector3.Transform(new Vector3(x, y, z) * length, rotation);
+
+        Quaternion tail = rotation * Quaternion.CreateFromAxisAngle(Vector3.UnitZ, wiggle) * Quaternion.CreateFromAxisAngle(Vector3.UnitX, MathF.PI / 4);
+        Color4 fin = new((byte)(color.R * 0.8f), (byte)(color.G * 0.8f), (byte)(color.B * 0.8f));
+        var eyeColor = new Color4(20, 20, 30);
+        return (
+            new Instance(position, new Vector3(1, 0.38f, 0.55f) * length, rotation, color),
+            new Instance(Local(-0.6f, 0, 0) + Vector3.Transform(new Vector3(0, wiggle * 0.08f, 0), rotation), new Vector3(0.3f, 0.03f, 0.3f) * length, tail, fin),
+            new Instance(Local(0, 0, 0.3f), new Vector3(0.35f, 0.03f, 0.18f) * length, rotation * Quaternion.CreateFromAxisAngle(Vector3.UnitY, 0.35f), fin),
+            new Instance(Local(0.32f, 0.14f, 0.07f), new Vector3(0.09f * length), eyeColor),
+            new Instance(Local(0.32f, -0.14f, 0.07f), new Vector3(0.09f * length), eyeColor));
     }
 
     public void Highlight(PickResult hit)
@@ -208,5 +216,37 @@ internal sealed class AquariumDemo : IDemo
             for (int i = 0; i < _fish.Length; i++)
                 if (_fish[i].Color == school) _fish[i].Color = golden;
         }
+    }
+}
+
+/// <summary>
+/// A single fish with a few bubbles (used to render the package icon).
+/// </summary>
+internal sealed class IconDemo : IDemo
+{
+    public IconDemo()
+    {
+        Scene = new Scene { Background = new Color4(18, 32, 48) };
+        var (body, tail, fin, left, right) = AquariumDemo.DrawFish(Vector3.Zero, new Vector3(1, -0.35f, 0.12f), 2, Color4.FromHsv(26, 0.8, 1.0), 0.3f);
+        Scene.Add(new InstanceBatch(Mesh.Sphere, "Fish") { ShowEdges = false }).Set(new[] { body, left, right });
+        Scene.Add(new InstanceBatch(Mesh.Box, "Fins") { ShowEdges = false }).Set(new[] { tail, fin });
+        Scene.Add(new InstanceBatch(Mesh.Sphere, "Bubbles") { ShowEdges = false, Transparent = true }).Set(new[]
+        {
+            new Instance(new Vector3(1.2f, -0.35f, 0.3f), new Vector3(0.2f), new Color4(230, 245, 255, 150)),
+            new Instance(new Vector3(1.32f, -0.3f, 0.58f), new Vector3(0.15f), new Color4(230, 245, 255, 150)),
+            new Instance(new Vector3(1.4f, -0.25f, 0.8f), new Vector3(0.1f), new Color4(230, 245, 255, 150)),
+        });
+        Description = "Icon";
+    }
+
+    public Scene Scene { get; }
+    public string Description { get; }
+    public void Animate(float seconds) { }
+    public void Highlight(PickResult hit) { }
+
+    public void SetupCamera(Camera camera)
+    {
+        camera.Yaw = -MathF.PI / 2 + 0.15f;
+        camera.Pitch = 0.2f;
     }
 }

@@ -192,6 +192,7 @@ public sealed class MainWindow : Window
     {
         "warehouse" => new WarehouseDemo(scale),
         "container" => new ContainerDemo(scale),
+        "icon" => new IconDemo(),
         _ => new AquariumDemo(scale),
     };
 
