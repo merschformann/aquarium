@@ -3,7 +3,9 @@
 Fast, simple 3D visualization of many shapes for [Avalonia](https://avaloniaui.net/) applications - think warehouses full of shelves and robots, or containers packed with boxes.
 
 > [!NOTE]
-> Aquarium was implemented with the support of an AI coding assistant (Claude). Design decisions, review and testing are done by a human.
+> Aquarium was implemented with the support of AI coding tools.
+
+![An aquarium with schools of fish, rendered with Aquarium](https://raw.githubusercontent.com/merschformann/aquarium/main/docs/aquarium.gif)
 
 - **Instanced rendering:** all instances of a shape (box, cylinder, sphere or a custom mesh) are drawn with a single draw call. Tens of thousands of moving objects stay smooth.
 - **Simple model:** a `Scene` consists of batches of instances (position, size, rotation, color) and lines. Batches can be updated from any thread.
@@ -42,11 +44,12 @@ Mouse: left drag = orbit, right / middle drag (or shift + left drag) = pan, whee
 ## Sample
 
 ```bash
+dotnet run --project samples/Aquarium.Sample -- aquarium
 dotnet run --project samples/Aquarium.Sample -- warehouse --scale 4
 dotnet run --project samples/Aquarium.Sample -- container
 ```
 
-Options: `--scale N` (size of the demo), `--benchmark seconds` (render continuously and print the frame rate), `--screenshot file.png`, `--zoom factor`, `--allow-software-gl` (allow Mesa's software renderer, e.g. for screenshots with Xvfb: `xvfb-run -a dotnet run --project samples/Aquarium.Sample -- --allow-software-gl --screenshot shot.png`).
+Options: `--scale N` (size of the demo), `--benchmark seconds` (render continuously and print the frame rate), `--screenshot file.png` (with `--frames N`: an image sequence, e.g. for a GIF), `--zoom factor`, `--allow-software-gl` (allow Mesa's software renderer, e.g. for screenshots with Xvfb: `xvfb-run -a dotnet run --project samples/Aquarium.Sample -- --allow-software-gl --screenshot shot.png`).
 
 ## Notes
 

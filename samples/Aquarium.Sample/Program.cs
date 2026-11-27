@@ -15,7 +15,7 @@ namespace Aquarium.Sample;
 
 /// <summary>
 /// Demo of the Aquarium control.
-/// Usage: Aquarium.Sample [warehouse|container] [--scale N] [--screenshot file.png] [--benchmark seconds] [--allow-software-gl]
+/// Usage: Aquarium.Sample [aquarium|warehouse|container] [--scale N] [--screenshot file.png [--frames N]] [--benchmark seconds] [--allow-software-gl]
 /// </summary>
 public static class Program
 {
@@ -33,7 +33,7 @@ public static class Program
     }
 }
 
-public sealed record Options(string Demo = "warehouse", int Scale = 1, string? Screenshot = null, double Benchmark = 0, bool AllowSoftwareGl = false, float Zoom = 1)
+public sealed record Options(string Demo = "aquarium", int Scale = 1, string? Screenshot = null, double Benchmark = 0, bool AllowSoftwareGl = false, float Zoom = 1, int Frames = 0)
 {
     public static Options Parse(string[] args)
     {
@@ -46,6 +46,7 @@ public sealed record Options(string Demo = "warehouse", int Scale = 1, string? S
                 "--zoom" => options with { Zoom = float.Parse(args[++i], System.Globalization.CultureInfo.InvariantCulture) },
                 "--allow-software-gl" => options with { AllowSoftwareGl = true },
                 "--screenshot" => options with { Screenshot = args[++i] },
+                "--frames" => options with { Frames = int.Parse(args[++i]) },
                 "--benchmark" => options with { Benchmark = double.Parse(args[++i], System.Globalization.CultureInfo.InvariantCulture) },
                 _ => options with { Demo = args[i] },
             };
@@ -73,6 +74,7 @@ public sealed class MainWindow : Window
     private readonly Options _options;
     private IDemo _demo;
     private int _frames;
+    private bool _recording;
     private TimeSpan _cpuTime;
 
     public MainWindow(Options options)
@@ -81,12 +83,12 @@ public sealed class MainWindow : Window
         Title = "Aquarium sample";
         Width = 1280;
         Height = 800;
-        _demo = options.Demo == "container" ? new ContainerDemo(options.Scale) : new WarehouseDemo(options.Scale);
+        _demo = CreateDemo(options.Demo, options.Scale);
 
-        var demoBox = new ComboBox { ItemsSource = new[] { "warehouse", "container" }, SelectedItem = options.Demo == "container" ? "container" : "warehouse", Margin = new Thickness(4) };
+        var demoBox = new ComboBox { ItemsSource = Demos, SelectedItem = Demos.Contains(options.Demo) ? options.Demo : Demos[0], Margin = new Thickness(4) };
         demoBox.SelectionChanged += (_, _) =>
         {
-            _demo = (string?)demoBox.SelectedItem == "container" ? new ContainerDemo(_options.Scale) : new WarehouseDemo(_options.Scale);
+            _demo = CreateDemo((string?)demoBox.SelectedItem, _options.Scale);
             ShowDemo();
         };
         var fit = new Button { Content = "Fit", Margin = new Thickness(4) };
@@ -121,6 +123,7 @@ public sealed class MainWindow : Window
         DispatcherTimer.Run(() =>
         {
             var now = clock.Elapsed;
+            if (_recording) { last = now; return true; } // Recording animates with a fixed time step
             _demo.Animate((float)(now - last).TotalSeconds);
             last = now;
             return true;
@@ -156,9 +159,24 @@ public sealed class MainWindow : Window
                 try
                 {
                     await Task.Delay(300);
-                    Screenshot shot = await _view.CaptureAsync().WaitAsync(TimeSpan.FromSeconds(10));
-                    Save(shot, _options.Screenshot);
-                    Console.WriteLine($"Screenshot written to {_options.Screenshot} ({shot.Width}x{shot.Height})");
+                    if (_options.Frames > 0)
+                    {
+                        // Image sequence (e.g. for a GIF): file_000.png, file_001.png, ... at 25 frames per second of animation
+                        _recording = true;
+                        string pattern = Path.ChangeExtension(_options.Screenshot, null) + "_{0:000}" + Path.GetExtension(_options.Screenshot);
+                        for (int frame = 0; frame < _options.Frames; frame++)
+                        {
+                            _demo.Animate(1 / 25f);
+                            Save(await _view.CaptureAsync().WaitAsync(TimeSpan.FromSeconds(10)), string.Format(pattern, frame));
+                        }
+                        Console.WriteLine($"{_options.Frames} frames written to {string.Format(pattern, 0)} ...");
+                    }
+                    else
+                    {
+                        Screenshot shot = await _view.CaptureAsync().WaitAsync(TimeSpan.FromSeconds(10));
+                        Save(shot, _options.Screenshot);
+                        Console.WriteLine($"Screenshot written to {_options.Screenshot} ({shot.Width}x{shot.Height})");
+                    }
                 }
                 catch (Exception ex) { Console.WriteLine("Screenshot failed: " + ex.Message); }
                 Close();
@@ -168,9 +186,19 @@ public sealed class MainWindow : Window
         };
     }
 
+    private static readonly string[] Demos = { "aquarium", "warehouse", "container" };
+
+    private static IDemo CreateDemo(string? name, int scale) => name switch
+    {
+        "warehouse" => new WarehouseDemo(scale),
+        "container" => new ContainerDemo(scale),
+        _ => new AquariumDemo(scale),
+    };
+
     private void ShowDemo()
     {
         _view.Scene = _demo.Scene;
+        _demo.SetupCamera(_view.Camera);
         _view.FitToScene();
     }
 
@@ -190,6 +218,7 @@ internal interface IDemo
     string Description { get; }
     void Animate(float seconds);
     void Highlight(PickResult hit);
+    void SetupCamera(Camera camera) { }
 }
 
 /// <summary>
